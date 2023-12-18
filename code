@@ -1,0 +1,90 @@
+#define BLINKER_WIFI
+#define BLINKER_MIOT_SENSOR
+
+#include <Blinker.h>
+// REQUIRES the following Arduino libraries:
+// - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
+// - Adafruit Unified Sensor Lib: https://github.com/adafruit/Adafruit_Sensor
+#include <DHT.h>
+char auth[] = "密钥";
+char ssid[] = "ssid";
+char pswd[] = "key";
+
+BlinkerNumber HUMI("humi");
+BlinkerNumber TEMP("temp");
+
+#define DHTPIN 6  
+
+#define DHTTYPE DHT11   // DHT 11
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+//#define DHTTYPE DHT21   // DHT 21 (AM2301)
+
+DHT dht(DHTPIN, DHTTYPE);
+
+int humi_read = 0, temp_read = 0;
+
+void heartbeat()
+{
+    HUMI.print(humi_read);
+    TEMP.print(temp_read);
+}
+
+void dataStorage()
+{
+    Blinker.dataStorage("temp", temp_read);
+    Blinker.dataStorage("humi", humi_read);
+}
+
+void miotQuery(int32_t queryCode)
+{
+    BLINKER_LOG("MIOT Query codes: ", queryCode);
+
+    switch (queryCode)
+    {
+        case BLINKER_CMD_QUERY_ALL_NUMBER :
+            BLINKER_LOG("MIOT Query All");
+            BlinkerMIOT.temp(temp_read);
+            BlinkerMIOT.humi(humi_read);
+            BlinkerMIOT.print();
+            break;
+        default :
+            BlinkerMIOT.temp(20);
+            BlinkerMIOT.humi(20);
+            break;
+    }
+}
+
+void setup()
+{
+    Serial.begin(115200);
+    BLINKER_DEBUG.stream(Serial);
+    BLINKER_DEBUG.debugAll();
+    //pinMode(LED_BUILTIN, OUTPUT);
+    //digitalWrite(LED_BUILTIN, LOW);
+
+    Blinker.begin(auth, ssid, pswd);
+    Blinker.attachHeartbeat(heartbeat);
+    Blinker.attachDataStorage(dataStorage);
+    BlinkerMIOT.attachQuery(miotQuery);
+    dht.begin();
+}
+
+void loop()
+{
+    Blinker.run();
+
+    int h = dht.readHumidity();
+    int t = dht.readTemperature();
+
+    if (isnan(h) || isnan(t))
+    {
+        BLINKER_LOG("Failed to read from DHT sensor!");
+    }
+    else
+    {
+        humi_read = h;
+        temp_read = t;
+    }
+
+    Blinker.delay(2000);
+} 
